@@ -7,19 +7,29 @@ import requests
 # ---------------------------------
 # 1. Telegram Configuration
 # ---------------------------------
-# Paste the credentials you copied from Telegram here
-TELEGRAM_BOT_TOKEN = "8868999203:AAHXOeiIa1eb6tT8_4J88L9qVwrdi3YhLFQ"
+# Pre-filled with your active system credentials
+TELEGRAM_BOT_TOKEN = "8868090203:AAHXDei1a1ebGst8_dJ8BL9qVmrds3YhLFQ"
 TELEGRAM_CHAT_ID = "7071409922"
 
-def send_absent_notification(student_name):
-    """Sends a 100% free instant push notification via Telegram Bot"""
+def send_batch_absent_notification(absent_names):
+    """Sends a single 100% free summary push notification for all absent students to stop app lag"""
     if "PASTE_" in TELEGRAM_BOT_TOKEN or not TELEGRAM_BOT_TOKEN:
-        st.warning(f"⚠️ Telegram Bot is not configured yet. (Simulated: {student_name} is absent)")
+        st.warning(f"⚠️ Telegram Bot is not configured yet. (Simulated: {', '.join(absent_names)} are absent)")
         return False
         
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        message_text = f"🔔 *EduTrack Pro Alert*\n\nNotice: **{student_name}** was marked **ABSENT** today ({date.today()}).\n\nPlease contact the school front office if this is an error."
+        
+        # Formats the absent students beautifully into a bulleted list
+        formatted_names = "\n".join([f"•  {name}" for name in absent_names])
+        
+        message_text = (
+            f"🔔 *EduTrack Pro Daily Attendance Alert*\n\n"
+            f"Date: *{date.today()}*\n\n"
+            f"The following student(s) were marked *ABSENT* today:\n"
+            f"{formatted_names}\n\n"
+            f"Please contact the school front office for any clarifications."
+        )
         
         payload = {
             "chat_id": TELEGRAM_CHAT_ID,
@@ -66,34 +76,55 @@ with tab1:
     if students_df.empty:
         st.warning("No students in the system. Add them in 'Manage Students' first.")
     else:
+        # High Performance UI: One-click status reset for the whole classroom
+        st.markdown("### ⚡ Quick Select")
+        default_status = st.radio(
+            "Set baseline status for all students to save tapping time:", 
+            ["Present", "Absent", "Late"], 
+            horizontal=True
+        )
+        
+        st.divider()
+        
         with st.form("attendance_form"):
             st.write(f"Marking attendance for: **{today}**")
             
             attendance_data = {}
             for index, row in students_df.iterrows():
-                col1, col2 = st.columns([3, 1])
+                col1, col2 = st.columns([3, 2])
                 with col1:
-                    st.write(f"**{row['name']}** (Grade: {row['grade']})")
+                    st.write(f"👤 **{row['name']}** (Grade: {row['grade']})")
                 with col2:
+                    # Dynamically updates its default position based on the master toggle above
+                    status_index = ["Present", "Absent", "Late"].index(default_status)
                     status = st.radio("Status", ["Present", "Absent", "Late"], 
+                                      index=status_index,
                                       key=f"status_{row['id']}", horizontal=True)
                     attendance_data[row['id']] = {"status": status, "name": row['name']}
             
             submit = st.form_submit_button("Save Attendance & Notify Parents")
             
             if submit:
-                alerts_sent = 0
+                absent_list = []
+                
+                # Write to local SQLite database instantly
                 for student_id, info in attendance_data.items():
                     c.execute("INSERT INTO attendance (date, student_id, status) VALUES (?, ?, ?)",
                               (str(today), student_id, info["status"]))
                     
                     if info["status"] == "Absent":
-                        success = send_absent_notification(info["name"])
-                        if success:
-                            alerts_sent += 1
+                        absent_list.append(info["name"])
                             
                 conn.commit()
-                st.success(f"✅ Attendance saved! {alerts_sent} instant parental alerts sent.")
+                
+                # Fire off notifications instantly without script loop lags
+                alerts_sent = 0
+                if absent_list:
+                    success = send_batch_absent_notification(absent_list)
+                    if success:
+                        alerts_sent = len(absent_list)
+                            
+                st.success(f"✅ Attendance saved! {alerts_sent} student alert(s) processed instantly via Telegram.")
 
 # ---------------------------------
 # 5. View Reports Tab
