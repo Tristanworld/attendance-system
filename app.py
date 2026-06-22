@@ -8,8 +8,8 @@ import requests
 # 1. Telegram Configuration
 # ---------------------------------
 # Replace these placeholders with your exact working Telegram keys
-TELEGRAM_BOT_TOKEN = "PASTE_YOUR_BOT_TOKEN_HERE"
-TELEGRAM_CHAT_ID = "PASTE_YOUR_CHAT_ID_HERE"
+TELEGRAM_BOT_TOKEN = "8868999203:AAHXOeiIa1eb6tT8_4J88L9qVwrdi3YhLFQ"
+TELEGRAM_CHAT_ID = "7071409922"
 
 def send_batch_absent_notification(absent_names):
     """Sends a single 100% free summary push notification for all absent students"""
