@@ -7,12 +7,12 @@ import requests
 # ---------------------------------
 # 1. Telegram Configuration
 # ---------------------------------
-# Pre-filled with your active system credentials
-TELEGRAM_BOT_TOKEN = "8868090203:AAHXDei1a1ebGst8_dJ8BL9qVmrds3YhLFQ"
-TELEGRAM_CHAT_ID = "7071409922"
+# Replace these placeholders with your exact working Telegram keys
+TELEGRAM_BOT_TOKEN = "PASTE_YOUR_BOT_TOKEN_HERE"
+TELEGRAM_CHAT_ID = "PASTE_YOUR_CHAT_ID_HERE"
 
 def send_batch_absent_notification(absent_names):
-    """Sends a single 100% free summary push notification for all absent students to stop app lag"""
+    """Sends a single 100% free summary push notification for all absent students"""
     if "PASTE_" in TELEGRAM_BOT_TOKEN or not TELEGRAM_BOT_TOKEN:
         st.warning(f"⚠️ Telegram Bot is not configured yet. (Simulated: {', '.join(absent_names)} are absent)")
         return False
@@ -20,13 +20,13 @@ def send_batch_absent_notification(absent_names):
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         
-        # Formats the absent students beautifully into a bulleted list
-        formatted_names = "\n".join([f"•  {name}" for name in absent_names])
+        # Format the list cleanly using HTML bullet points
+        formatted_names = "\n".join([f"• <b>{name}</b>" for name in absent_names])
         
         message_text = (
-            f"🔔 *EduTrack Pro Daily Attendance Alert*\n\n"
-            f"Date: *{date.today()}*\n\n"
-            f"The following student(s) were marked *ABSENT* today:\n"
+            f"🔔 <b>EduTrack Pro Daily Attendance Alert</b>\n\n"
+            f"Date: <b>{date.today()}</b>\n\n"
+            f"The following student(s) were marked <b>ABSENT</b> today:\n"
             f"{formatted_names}\n\n"
             f"Please contact the school front office for any clarifications."
         )
@@ -34,13 +34,20 @@ def send_batch_absent_notification(absent_names):
         payload = {
             "chat_id": TELEGRAM_CHAT_ID,
             "text": message_text,
-            "parse_mode": "Markdown"
+            "parse_mode": "HTML"
         }
         
         response = requests.post(url, json=payload)
-        return response.status_code == 200
+        
+        if response.status_code == 200:
+            return True
+        else:
+            # If there's a token typo or permission issue, this will display the real reason
+            st.error(f"❌ Telegram API Error ({response.status_code}): {response.text}")
+            return False
+            
     except Exception as e:
-        st.error(f"❌ Notification failed: {e}")
+        st.error(f"❌ Connection failed: {e}")
         return False
 
 # ---------------------------------
@@ -76,7 +83,6 @@ with tab1:
     if students_df.empty:
         st.warning("No students in the system. Add them in 'Manage Students' first.")
     else:
-        # High Performance UI: One-click status reset for the whole classroom
         st.markdown("### ⚡ Quick Select")
         default_status = st.radio(
             "Set baseline status for all students to save tapping time:", 
@@ -95,7 +101,6 @@ with tab1:
                 with col1:
                     st.write(f"👤 **{row['name']}** (Grade: {row['grade']})")
                 with col2:
-                    # Dynamically updates its default position based on the master toggle above
                     status_index = ["Present", "Absent", "Late"].index(default_status)
                     status = st.radio("Status", ["Present", "Absent", "Late"], 
                                       index=status_index,
@@ -106,8 +111,6 @@ with tab1:
             
             if submit:
                 absent_list = []
-                
-                # Write to local SQLite database instantly
                 for student_id, info in attendance_data.items():
                     c.execute("INSERT INTO attendance (date, student_id, status) VALUES (?, ?, ?)",
                               (str(today), student_id, info["status"]))
@@ -117,7 +120,6 @@ with tab1:
                             
                 conn.commit()
                 
-                # Fire off notifications instantly without script loop lags
                 alerts_sent = 0
                 if absent_list:
                     success = send_batch_absent_notification(absent_list)
